@@ -105,6 +105,5 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  uint64 syscall_counts[SYSCALL_COUNT+1];
-  uint8 incount;
+  //uint64 syscall_counts[NUMBER_OF_SYSCALLS+1];
 };

@@ -147,9 +147,9 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
-  for(int i=1; i<=SYSCALL_COUNT; i++){
+  /* for(int i=1; i<=NUMBER_OF_SYSCALLS; i++){
     p->syscall_counts[i] = 0;
-  }
+  } */
   return p;
 }
 
@@ -299,10 +299,14 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
-  // Copy syscall counts to child
-  for(int i = 0; i <= SYSCALL_COUNT; i++){
+
+  // No need Modify NUMBER_OF_SYSCALLS bacuz I made it into a 
+
+
+  /* // Copy syscall counts to child
+  for(int i = 0; i <= NUMBER_OF_SYSCALLS; i++){
     np->syscall_counts[i] = p->syscall_counts[i];
-  }
+  } */
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);

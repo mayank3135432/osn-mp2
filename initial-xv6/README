@@ -1,0 +1,2 @@
+A global variable array indexed by syscall numbers is declared in to store number of calls to syscall
+getSyscount returns the 

@@ -8,6 +8,10 @@
 #include "defs.h"
 #include "number_syscall.h"
 
+
+uint64 syscall_counts[NUMBER_OF_SYSCALLS+1] = {0};
+
+
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -141,7 +145,7 @@ syscall(void)
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     // increment count of syscall
-    p->syscall_counts[num]++;
+    syscall_counts[num]++;
         //printsyscall(num);
         //printf(" [syscall %d is run %ld times]\n", num, p->syscall_counts[num]);
     // Use num to lookup the system call function for num, call it,

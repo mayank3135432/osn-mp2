@@ -111,6 +111,13 @@ sys_getsyscount(void)
   
   if(syscall_num == -1)
     return -1;
-  struct proc *p = myproc();
-  return p->syscall_counts[syscall_num];
+  //struct proc *p = myproc();
+
+  int RETVALL = syscall_counts[syscall_num];
+
+  // reset count
+  for(int i=0; i<=NUMBER_OF_SYSCALLS; i++){
+    syscall_counts[i] = 0;
+  }
+  return RETVALL;
 }

@@ -2,7 +2,7 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
-
+#include "kernel/number_syscall.h"
 
 
 void printsyscall(int sid){
@@ -87,7 +87,7 @@ main(int argc, char *argv[])
   }
 
   int mask = atoi(argv[1]);
-  
+  getsyscount(mask);
   int pid = fork();
   if(pid < 0){
     fprintf(2, "fork failed\n");

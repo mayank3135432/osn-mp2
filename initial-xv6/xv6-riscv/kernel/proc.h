@@ -106,4 +106,10 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   //uint64 syscall_counts[NUMBER_OF_SYSCALLS+1];
+  int alarm_interval;       // Alarm interval in ticks
+  //uint64 alarm_handler;     // Address of the alarm handler function
+  void (*alarm_handler)();
+  int ticks_count;          // Counter for ticks
+  int alarm_on;             // Flag to check if alarm is on
+  struct trapframe *alarm_trapframe;
 };

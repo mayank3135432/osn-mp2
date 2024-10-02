@@ -72,6 +72,7 @@ void printsyscall(int sid){
       break;
     case 1<<22:
       printf("getSyscount");
+      break;
     default:
       printf("Invalid system call");
       break;
@@ -87,7 +88,7 @@ main(int argc, char *argv[])
   }
 
   int mask = atoi(argv[1]);
-  getsyscount(mask);
+  getSyscount(mask);
   int pid = fork();
   if(pid < 0){
     fprintf(2, "fork failed\n");
@@ -103,7 +104,7 @@ main(int argc, char *argv[])
     // Parent process
     int status;
     wait(&status);
-    int count = getsyscount(mask);
+    int count = getSyscount(mask);
     
     printf("PID %d called ", pid);
     //printf("%d",mask);

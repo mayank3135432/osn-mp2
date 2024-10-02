@@ -36,4 +36,5 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
-entry("getsyscount");
+entry("getSyscount");
+entry("sigalarm");

@@ -125,7 +125,6 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -299,15 +298,15 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+  
 
-  // No need Modify NUMBER_OF_SYSCALLS bacuz I made it into a 
-
-
-  /* // Copy syscall counts to child
-  for(int i = 0; i <= NUMBER_OF_SYSCALLS; i++){
-    np->syscall_counts[i] = p->syscall_counts[i];
-  } */
-
+  // Copy alarm-related fields
+  np->alarm_interval = p->alarm_interval;
+  np->alarm_handler = p->alarm_handler;
+  np->ticks_count = 0;
+  np->alarm_on = p->alarm_on;
+  np->alarm_trapframe = 0;
+  
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
@@ -491,6 +490,91 @@ scheduler(void)
     }
   }
 }
+
+
+/* 
+void
+scheduler(void)
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+  
+  c->proc = 0;
+  for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+
+    #ifdef LBS
+    int total_tickets = 0;
+    struct proc *chosen = 0;
+    
+    // Calculate total tickets and find the process with the most tickets
+    for(p = proc; p < &proc[NPROC]; p++) {
+      if(p->state == RUNNABLE) {
+        total_tickets += p->tickets;
+        if(!chosen || p->tickets > chosen->tickets || 
+           (p->tickets == chosen->tickets && p->arrival_time < chosen->arrival_time)) {
+          chosen = p;
+        }
+      }
+    }
+    
+    if(chosen) {
+      // Use an LFSR for pseudo-random number generation
+      static unsigned long lfsr = 1;
+      lfsr = (lfsr >> 1) ^ (-(lfsr & 1u) & 0xD0000001u);
+      int winner = lfsr % total_tickets;
+      
+      // Find the winning process
+      int count = 0;
+      for(p = proc; p < &proc[NPROC]; p++) {
+        if(p->state == RUNNABLE) {
+          count += p->tickets;
+          if(count > winner) {
+            // Check if there's a process with the same number of tickets but earlier arrival time
+            struct proc *earlier = 0;
+            for(struct proc *q = proc; q < p; q++) {
+              if(q->state == RUNNABLE && q->tickets == p->tickets && q->arrival_time < p->arrival_time) {
+                earlier = q;
+                break;
+              }
+            }
+            p = earlier ? earlier : p;
+            break;
+          }
+        }
+      }
+      
+      // Switch to chosen process.
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+        c->proc = 0;
+      }
+      release(&p->lock);
+    }
+    #else
+    // Original round-robin scheduler code
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        // Switch to chosen process.
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
+      release(&p->lock);
+    }
+    #endif
+  }
+} */
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores

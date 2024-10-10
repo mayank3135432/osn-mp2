@@ -109,6 +109,7 @@ extern uint64 sys_close(void);
 extern uint64 sys_getSyscount(void);
 extern uint64 sys_sigalarm(void);
 extern uint64 sys_sigreturn(void);
+extern uint64 sys_settickets(void);
 
 
 // An array mapping syscall numbers from syscall.h

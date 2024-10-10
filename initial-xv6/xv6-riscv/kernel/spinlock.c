@@ -20,7 +20,8 @@ initlock(struct spinlock *lk, char *name)
 // Loops (spins) until the lock is acquired.
 void
 acquire(struct spinlock *lk)
-{
+{ // THERE IS AN ISSUE IN THIS FUNCTION AFTER SIGRETURN / SIGALARM UT I DO NOT KNOW WHY ?????
+  //printf("Attempting to acquire lock: %s\n", lk->name);
   push_off(); // disable interrupts to avoid deadlock.
   if(holding(lk))
     panic("acquire");
@@ -40,6 +41,7 @@ acquire(struct spinlock *lk)
 
   // Record info about lock acquisition for holding() and debugging.
   lk->cpu = mycpu();
+  //printf("Lock acquired: %s\n", lk->name);
 }
 
 // Release the lock.

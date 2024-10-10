@@ -33,8 +33,74 @@ trapinithart(void)
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
 //
+
+void OLDusertrap(void)
+{
+  int which_dev = 0;
+
+  if ((r_sstatus() & SSTATUS_SPP) != 0)
+    panic("usertrap: not from user mode");
+
+  w_stvec((uint64)kernelvec);
+
+  struct proc *p = myproc();
+
+  // save user program counter.
+  p->trapframe->epc = r_sepc();
+
+  if (r_scause() == 8)
+  {
+    // system call
+    if (killed(p))
+      exit(-1);
+
+    // sepc points to the ecall instruction,
+    // but we want to return to the next instruction.
+    p->trapframe->epc += 4;
+
+    intr_on();
+
+    syscall();
+  }
+  else if ((which_dev = devintr()) != 0)
+  {
+    // ok
+  }
+  else
+  {
+    printf("usertrap(): unexpected scause %lx pid=%d\n", r_scause(), p->pid);
+    printf("            sepc=%lx stval=%lx\n", r_sepc(), r_stval());
+    setkilled(p);
+  }
+
+  if (p->alarm_interval > 0 && !p->alarm_handler)
+  {
+    p->ticks_count++;
+    if (p->ticks_count >= p->alarm_interval)
+    {
+      p->ticks_count = 0;
+      //p->alarm_handler = 1;
+
+      // Save the current trapframe
+      memmove(p->alarm_trapframe, p->trapframe, sizeof(struct trapframe));
+
+      // Set the trapframe to call the handler
+      p->trapframe->epc = (uint64)p->alarm_handler;
+    }
+  }
+
+  if (killed(p))
+    exit(-1);
+
+  if (which_dev == 2)
+    yield();
+
+  usertrapret();
+}
+
+
 void
-usertrap(void)
+BADOLDIE_usertrap(void)
 {
   int which_dev = 0;
 
@@ -49,6 +115,7 @@ usertrap(void)
   
   // save user program counter.
   p->trapframe->epc = r_sepc();
+  //printf("scause is %ld\n", r_scause());
   
   if(r_scause() == 8){
     // system call
@@ -76,18 +143,136 @@ usertrap(void)
   if(killed(p))
     exit(-1);
 
-  if(which_dev == 2) {
+ 
+  /* if(which_dev == 2) {
     // timer interrupt
-    struct proc *p = myproc();
-    if(p != 0 && p->alarm_on) {
+    if(p->alarm_interval > 0 && p->state == RUNNING) {
       p->ticks_count++;
-      if(p->ticks_count >= p->alarm_interval) {
+      if(p->ticks_count >= p->alarm_interval && p->alarm_handler != 0) {
         p->ticks_count = 0;
         if(p->alarm_trapframe == 0) {
           p->alarm_trapframe = kalloc();
-          memmove(p->alarm_trapframe, p->trapframe, sizeof(struct trapframe));
-          p->trapframe->epc = (uint64)p->alarm_handler;
-          
+          if(p->alarm_trapframe == 0) {
+            printf("usertrap: out of memory\n");
+            p->killed = 1;
+          } else {
+            memmove(p->alarm_trapframe, p->trapframe, sizeof(struct trapframe));
+            p->trapframe->epc = (uint64)p->alarm_handler;
+          }
+        }
+      }
+    }
+  } */
+ if(which_dev == 2) {
+    // timer interrupt
+    if(p->alarm_on && p->alarm_interval > 0) {
+      p->ticks_count++;
+      printf("Process %d: ticks_count = %d, alarm_interval = %d\n", 
+             p->pid, p->ticks_count, p->alarm_interval);
+      if(p->ticks_count >= p->alarm_interval) {
+        printf("Process %d: Alarm triggered\n", p->pid);
+        if(p->alarm_trapframe == 0) {
+          p->alarm_trapframe = kalloc();
+          if(p->alarm_trapframe == 0) {
+            printf("usertrap: out of memory\n");
+            p->killed = 1;
+          } else {
+            memmove(p->alarm_trapframe, p->trapframe, sizeof(struct trapframe));
+            p->trapframe->epc = (uint64)p->alarm_handler;
+            p->ticks_count = 0;
+            printf("Process %d: Calling alarm handler at %p\n", p->pid, (void*)p->alarm_handler);
+          }
+        }
+      }
+    }
+  }
+
+  usertrapret();
+}
+
+
+void
+usertrap(void)
+{
+  int which_dev = 0;
+
+  if((r_sstatus() & SSTATUS_SPP) != 0)
+    panic("usertrap: not from user mode");
+
+  // send interrupts and exceptions to kerneltrap(),
+  // since we're now in the kernel.
+  w_stvec((uint64)kernelvec);
+
+  struct proc *p = myproc();
+  
+  // save user program counter.
+  p->trapframe->epc = r_sepc();
+  //printf("scause is %ld\n", r_scause());
+  
+  if(r_scause() == 8){
+    // system call
+
+    if(killed(p))
+      exit(-1);
+
+    // sepc points to the ecall instruction,
+    // but we want to return to the next instruction.
+    p->trapframe->epc += 4;
+
+    // an interrupt will change sepc, scause, and sstatus,
+    // so enable only now that we're done with those registers.
+    intr_on();
+
+    syscall();
+  } else if((which_dev = devintr()) != 0){
+    // ok
+  } else {
+    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
+    printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+    setkilled(p);
+  }
+
+  if(killed(p))
+    exit(-1);
+
+ 
+  if(which_dev == 2) {
+    // timer interrupt
+    if(p->alarm_on && p->alarm_interval > 0 && !p->handling_alarm) {
+      p->ticks_count++;
+      if(p->ticks_count >= p->alarm_interval) {
+        p->handling_alarm = 1;  // Set handling_alarm flag
+        if(p->alarm_trapframe == 0) {
+          p->alarm_trapframe = kalloc();
+          if(p->alarm_trapframe == 0) {
+            panic("usertrap: out of memory");
+          }
+        }
+        memmove(p->alarm_trapframe, p->trapframe, sizeof(struct trapframe));
+        p->trapframe->epc = (uint64)p->alarm_handler;
+      }
+    }
+    yield();
+  }
+ if(which_dev == 2) {
+    // timer interrupt
+    if(p->alarm_on && p->alarm_interval > 0) {
+      p->ticks_count++;
+      printf("Process %d: ticks_count = %d, alarm_interval = %d\n", 
+             p->pid, p->ticks_count, p->alarm_interval);
+      if(p->ticks_count >= p->alarm_interval) {
+        printf("Process %d: Alarm triggered\n", p->pid);
+        if(p->alarm_trapframe == 0) {
+          p->alarm_trapframe = kalloc();
+          if(p->alarm_trapframe == 0) {
+            printf("usertrap: out of memory\n");
+            p->killed = 1;
+          } else {
+            memmove(p->alarm_trapframe, p->trapframe, sizeof(struct trapframe));
+            p->trapframe->epc = (uint64)p->alarm_handler;
+            p->ticks_count = 0;
+            printf("Process %d: Calling alarm handler at %p\n", p->pid, (void*)p->alarm_handler);
+          }
         }
       }
     }
@@ -199,7 +384,7 @@ devintr()
 {
   uint64 scause = r_scause();
 
-  if(scause == 0x8000000000000009L){
+  if(scause == 0x8000000000000009L){ // -9223372036854775803
     // this is a supervisor external interrupt, via PLIC.
 
     // irq indicates which device interrupted.

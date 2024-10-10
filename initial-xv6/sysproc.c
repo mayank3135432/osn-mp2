@@ -130,6 +130,7 @@ sys_getSyscount(void)
   return RETVALL;
 }
 
+
 uint64
 sys_sigalarm(void)
 {
@@ -137,13 +138,42 @@ sys_sigalarm(void)
   uint64 handler;
   argint(0, &interval);
   argaddr(1, &handler);
-  return sigalarm(interval, (void(*)())handler);
-}
+  struct proc *p = myproc();
 
+  //printf("Setting sigalarm: interval=%d, handler=%p\n", interval, (void*)handler);
+
+  if(p->alarm_trapframe) {
+    kfree(p->alarm_trapframe);
+    p->alarm_trapframe = 0;
+  }
+
+  p->alarm_interval = interval;
+  p->alarm_handler = (void(*)())handler;
+  p->alarm_on = (interval > 0);
+
+  if(p->trapframe == 0){
+    p->alarm_trapframe = kalloc();
+  }
+
+  //printf("Sigalarm set: interval=%d, handler=%p\n", p->alarm_interval, (void*)p->alarm_handler);
+
+  return 0;
+}
 uint64
 sys_sigreturn(void)
 {
-  return sigreturn();
+  struct proc *p = myproc();
+  printf("sys_sigreturn called for process %d\n", p->pid);
+  if(p->alarm_trapframe) {
+    printf("Restoring trapframe for process %d\n", p->pid);
+    memmove(p->trapframe, p->alarm_trapframe, PGSIZE);
+    kfree(p->alarm_trapframe);
+    p->alarm_trapframe = 0;
+    printf("Trapframe restored for process %d\n", p->pid);
+  } else {
+    printf("No alarm_trapframe to restore for process %d\n", p->pid);
+  }
+  return 0;
 }
 uint64
 sys_settickets(void)

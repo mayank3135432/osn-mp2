@@ -58,6 +58,7 @@ void runcmd(struct cmd*) __attribute__((noreturn));
 void
 runcmd(struct cmd *cmd)
 {
+  //printf("_____!let's runcmd!_______\n");
   int p[2];
   struct backcmd *bcmd;
   struct execcmd *ecmd;
@@ -70,12 +71,13 @@ runcmd(struct cmd *cmd)
 
   switch(cmd->type){
   default:
-    panic("runcmd");
+    panic("runcmd"); // -debug line
 
   case EXEC:
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(1);
+    //printf("_____!let's exec!_______\n"); // -debug line
     exec(ecmd->argv[0], ecmd->argv);
     fprintf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
@@ -158,6 +160,7 @@ main(void)
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
+    //printf("iguess this is the start of the shell loop\n");
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.
       buf[strlen(buf)-1] = 0;  // chop \n
@@ -165,9 +168,14 @@ main(void)
         fprintf(2, "cannot cd %s\n", buf+3);
       continue;
     }
-    if(fork1() == 0)
+    //printf("iguess this is before the fork1\n");
+    if(fork1() == 0){
       runcmd(parsecmd(buf));
+      //printf("iguess this is after the runcmd\n");
+    }
+    //printf("iguess this is before the wait\n");
     wait(0);
+    //printf("iguess this is end of the shell loop\n");
   }
   exit(0);
 }

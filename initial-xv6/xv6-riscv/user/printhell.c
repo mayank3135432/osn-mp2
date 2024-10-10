@@ -1,24 +1,21 @@
 #include "kernel/types.h"
 #include "user/user.h"
-int jk=0;
-void
-alarm_handler()
-{
-  printf("_____________!Alarm!_______________\n");
-  for(int i=0;i<jk;i++){
-    printf("%d\n",i);
-  }
-  jk++;
+
+void handler() {
+  printf("_________________________Alarm!_________________________\n");
   sigreturn();
 }
 
-int
-main(int argc, char *argv[])
-{
-  sigalarm(1, &alarm_handler);  // Set alarm for every 3 ticks
-  while(1){
-    printf("%d\n",getpid());
+int main(int argc, char *argv[]) {
+  sigalarm(3, handler);
+  uint64 i = 0;
+  while(i<1000000000){
+    //printf("\n_____!!!!+_____+!!!!_____i: %ld_____!!!!+_____+!!!!_____\n", i);
+    i++;
+    
   }
-  sigalarm(0, 0);  // Turn off the alarm
+  
+  sigalarm(0, 0);  // Disable alarm
+  printf("Test complete, i=%ld\n",i);
   exit(0);
 }

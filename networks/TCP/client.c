@@ -1,4 +1,4 @@
-//#include "tools.h"
+#include "tools.h"
 
 int main() {
     int sock = 0;
@@ -36,16 +36,20 @@ int main() {
         if (strstr(buffer, "Your turn") != NULL) {
             fgets(buffer, BUFFER_SIZE, stdin);
             send(sock, buffer, strlen(buffer), 0);
-        } else if (strstr(buffer, "play again") != NULL) {
+        } else if (strstr(buffer, "play again?") != NULL) {
+            // printf("really ? what now ??\n"); --debug line
             fgets(buffer, BUFFER_SIZE, stdin);
             send(sock, buffer, strlen(buffer), 0);
             if (buffer[0] != 'y' && buffer[0] != 'Y') {
                 printf("Thanks for playing! Goodbye.\n");
                 break;
             }
+        } else if (strstr(buffer, "Starting a new game!") != NULL) {
+            // Reset client state if necessary
+            continue;
         }
     }
-
+    // printf("goodbye cruel life\n"); -- debug line
     close(sock);
     return 0;
 }

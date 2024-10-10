@@ -10,6 +10,14 @@ volatile static int started = 0;
 void
 main()
 {
+  /* 
+  int ttnum = 100;
+  for(int i=0; i<100; i++){
+    static unsigned long lfsr = 1;
+    lfsr = (lfsr >> 1) ^ (-(lfsr & 1u) & 0xD0000001u);
+    int winner = lfsr % ttnum;
+    printf("%dth winner is %d\n",i,  winner);
+  } */
   if(cpuid() == 0){
     consoleinit();
     printfinit();

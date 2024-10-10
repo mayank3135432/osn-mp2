@@ -21,10 +21,31 @@ typedef struct {
     int current_player;
 } GameState;
 
-#endif // TOOLS_H
+typedef struct {
+    struct sockaddr_in addr;
+    int player_number;
+} ClientInfo;
+
+// Message types
+#define MSG_MOVE 1
+#define MSG_GAME_STATE 2
+#define MSG_GAME_OVER 3
+#define MSG_PLAY_AGAIN 4
+
+typedef struct {
+    int type;
+    union {
+        struct { int row; int col; } move;
+        GameState game_state;
+        struct { int winner; } game_over;
+        struct { int play_again; } play_again;
+    } data;
+} Message;
+
 void init_board(GameState *game);
 void print_board(const GameState *game);
 int make_move(GameState *game, int row, int col);
 int check_winner(const GameState *game);
 int is_board_full(const GameState *game);
 
+#endif // TOOLS_H

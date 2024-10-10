@@ -60,31 +60,45 @@ bget(uint dev, uint blockno)
 {
   struct buf *b;
 
-  acquire(&bcache.lock);
+  // printf("bget: acquiring bcache.lock\n"); // debug line
+  acquire(&bcache.lock); // problem is here for sigreturn/sigalarm
 
   // Is the block already cached?
+  // printf("bget: checking if block is already cached\n"); // debug line
   for(b = bcache.head.next; b != &bcache.head; b = b->next){
+    // printf("bget: inspecting buffer with dev=%u, blockno=%u\n", b->dev, b->blockno); // debug line
     if(b->dev == dev && b->blockno == blockno){
+      // printf("bget: found cached buffer, incrementing refcnt\n"); // debug line
       b->refcnt++;
+      // printf("bget: releasing bcache.lock\n"); // debug line
       release(&bcache.lock);
+      // printf("bget: acquiring b->lock\n"); // debug line
       acquiresleep(&b->lock);
+      // printf("bget: returning cached buffer\n"); // debug line
       return b;
     }
   }
 
   // Not cached.
   // Recycle the least recently used (LRU) unused buffer.
+  // printf("bget: block not cached, looking for LRU buffer\n"); // debug line
   for(b = bcache.head.prev; b != &bcache.head; b = b->prev){
+    // printf("bget: inspecting LRU buffer with refcnt=%d\n", b->refcnt); // debug line
     if(b->refcnt == 0) {
+      // printf("bget: found LRU buffer, recycling it\n"); // debug line
       b->dev = dev;
       b->blockno = blockno;
       b->valid = 0;
       b->refcnt = 1;
+      // printf("bget: releasing bcache.lock\n"); // debug line
       release(&bcache.lock);
+      // printf("bget: acquiring b->lock\n"); // debug line
       acquiresleep(&b->lock);
+      // printf("bget: returning new buffer\n"); // debug line
       return b;
     }
   }
+  // printf("bget: no buffers available, panicking\n"); // debug line
   panic("bget: no buffers");
 }
 
@@ -93,12 +107,15 @@ struct buf*
 bread(uint dev, uint blockno)
 {
   struct buf *b;
-
-  b = bget(dev, blockno);
+  // printf("bread before bget\n"); // debug line
+  b = bget(dev, blockno); // problem is here in bget for sigreturn/sigalarm
+  // printf("bread after bget\n"); // debug line
   if(!b->valid) {
+    // printf("bread before virtio_disk_rw\n"); // debug line
     virtio_disk_rw(b, 0);
     b->valid = 1;
   }
+  // printf("bread before return b\n"); // debug line
   return b;
 }
 
@@ -149,5 +166,3 @@ bunpin(struct buf *b) {
   b->refcnt--;
   release(&bcache.lock);
 }
-
-

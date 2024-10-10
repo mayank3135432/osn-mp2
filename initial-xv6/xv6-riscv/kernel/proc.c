@@ -7,6 +7,7 @@
 #include "defs.h"
 #include "number_syscall.h"
 
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -125,6 +126,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->tickets = 1;  // Default to 1 ticket
+  p->arrival_time = ticks;  // Current system time
+  p->handling_alarm = 0;
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -158,9 +162,7 @@ found:
 static void
 freeproc(struct proc *p)
 {
-  if(p->trapframe)
-    kfree((void*)p->trapframe);
-  p->trapframe = 0;
+  
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -172,6 +174,16 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+
+  p->alarm_interval = 0;
+  p->alarm_handler = 0;
+  p->handling_alarm = 0;
+  p->ticks_count = 0;
+  
+  if(p->alarm_trapframe)
+    kfree((void*)p->alarm_trapframe);
+  p->alarm_trapframe = 0;
+  p->trapframe = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -390,7 +402,7 @@ exit(int status)
   p->state = ZOMBIE;
 
   release(&wait_lock);
-
+  //printf("\n_____________exited_____________\n"); // debug line
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
@@ -452,129 +464,45 @@ wait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
-void
-scheduler(void)
-{
+
+void scheduler(void) {
   struct proc *p;
   struct cpu *c = mycpu();
-
   c->proc = 0;
-  for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting.
+
+  for(;;) {
+    //printf("Scheduler loop start\n");
+
+    // Enable interrupts to avoid deadlock
     intr_on();
 
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
+      //printf("Checking process %d, state: %d\n", p->pid, p->state);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
+        //printf("Checking process %d, state: %d\n", p->pid, p->state);
+        //printf("Switching to process %d\n", p->pid);
+        // Switch to chosen process
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
+        // Process is done running for now
+        // It should have changed its p->state before coming back
         c->proc = 0;
         found = 1;
       }
       release(&p->lock);
     }
+
     if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+      // No runnable process found, wait for an interrupt
+      //printf("No runnable process found, waiting for interrupt\n");
       intr_on();
       asm volatile("wfi");
     }
   }
 }
-
-
-/* 
-void
-scheduler(void)
-{
-  struct proc *p;
-  struct cpu *c = mycpu();
-  
-  c->proc = 0;
-  for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
-
-    #ifdef LBS
-    int total_tickets = 0;
-    struct proc *chosen = 0;
-    
-    // Calculate total tickets and find the process with the most tickets
-    for(p = proc; p < &proc[NPROC]; p++) {
-      if(p->state == RUNNABLE) {
-        total_tickets += p->tickets;
-        if(!chosen || p->tickets > chosen->tickets || 
-           (p->tickets == chosen->tickets && p->arrival_time < chosen->arrival_time)) {
-          chosen = p;
-        }
-      }
-    }
-    
-    if(chosen) {
-      // Use an LFSR for pseudo-random number generation
-      static unsigned long lfsr = 1;
-      lfsr = (lfsr >> 1) ^ (-(lfsr & 1u) & 0xD0000001u);
-      int winner = lfsr % total_tickets;
-      
-      // Find the winning process
-      int count = 0;
-      for(p = proc; p < &proc[NPROC]; p++) {
-        if(p->state == RUNNABLE) {
-          count += p->tickets;
-          if(count > winner) {
-            // Check if there's a process with the same number of tickets but earlier arrival time
-            struct proc *earlier = 0;
-            for(struct proc *q = proc; q < p; q++) {
-              if(q->state == RUNNABLE && q->tickets == p->tickets && q->arrival_time < p->arrival_time) {
-                earlier = q;
-                break;
-              }
-            }
-            p = earlier ? earlier : p;
-            break;
-          }
-        }
-      }
-      
-      // Switch to chosen process.
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-        c->proc = 0;
-      }
-      release(&p->lock);
-    }
-    #else
-    // Original round-robin scheduler code
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      release(&p->lock);
-    }
-    #endif
-  }
-} */
-
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -586,6 +514,7 @@ scheduler(void)
 void
 sched(void)
 {
+  //printf("!_____________!sched run!_____________!\n"); // debug line
   int intena;
   struct proc *p = myproc();
 
@@ -601,6 +530,7 @@ sched(void)
   intena = mycpu()->intena;
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
+  //printf("!_____________!sched QUIT!_____________!");
 }
 
 // Give up the CPU for one scheduling round.
@@ -788,4 +718,33 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+int
+sigalarm(int ticks, void (*handler)())
+{
+  struct proc *p = myproc();
+  acquire(&p->lock);  // Acquire the process lock
+  p->alarm_interval = ticks;
+  p->alarm_handler = handler;
+  p->ticks_count = 0;
+  p->alarm_on = (ticks > 0) ? 1 : 0;  // Only enable if ticks > 0
+  p->handling_alarm = 0;  // Add this field to struct proc
+  release(&p->lock);  // Release the process lock
+  return 0;
+}
+
+int
+sigreturn(void)
+{
+  struct proc *p = myproc();
+  acquire(&p->lock);  // Acquire the process lock
+  if(p->alarm_trapframe && p->handling_alarm) {
+    memmove(p->trapframe, p->alarm_trapframe, sizeof(struct trapframe));
+    kfree(p->alarm_trapframe);
+    p->alarm_trapframe = 0;
+    p->handling_alarm = 0;
+    p->ticks_count = 0;  // Reset tick count
+  }
+  release(&p->lock);  // Release the process lock
+  return 0;
 }

@@ -60,6 +60,7 @@ kfree(void *pa)
   r->next = kmem.freelist;
   kmem.freelist = r;
   release(&kmem.lock);
+  //printf("it is a release\n"); // --debug line
 }
 
 // Allocate one 4096-byte page of physical memory.

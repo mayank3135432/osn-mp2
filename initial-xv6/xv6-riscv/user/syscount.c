@@ -73,6 +73,12 @@ void printsyscall(int sid){
     case 1<<22:
       printf("getSyscount");
       break;
+    case 1<<23:
+      printf("sigalarm");
+      break;
+    case 1<<24:
+      printf("settickets");
+      break;
     default:
       printf("Invalid system call");
       break;

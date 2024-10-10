@@ -471,20 +471,29 @@ stati(struct inode *ip, struct stat *st)
 int
 readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
 {
+  //printf("in readi\n"); // debug line
   uint tot, m;
   struct buf *bp;
 
-  if(off > ip->size || off + n < off)
+  //printf("readi: ip->size: %d, off: %d, n: %d\n", ip->size, off, n); // debug line
+  if(off > ip->size || off + n < off){
+    //printf("readi: returning 0 when 1st if\n"); // debug line
     return 0;
-  if(off + n > ip->size)
+  }
+  if(off + n > ip->size){
+    //printf("readi: returning 0 when 2nd if\n"); // debug line
     n = ip->size - off;
+  }
 
   for(tot=0; tot<n; tot+=m, off+=m, dst+=m){
     uint addr = bmap(ip, off/BSIZE);
     if(addr == 0)
       break;
+    //printf("BEFORE BREAD readi: addr: %d\n", addr); // debug line
     bp = bread(ip->dev, addr);
+    //printf("AFTER BREAD readi: addr: %d\n", addr); // debug line
     m = min(n - tot, BSIZE - off%BSIZE);
+    //printf("readi: addr: %d, m: %d, tot: %d, off: %d, dst: %lu\n", addr, m, tot, off, dst); // debug line
     if(either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
       brelse(bp);
       tot = -1;
@@ -492,10 +501,9 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
     }
     brelse(bp);
   }
+  //printf("readi: tot: %d\n", tot); // debug line
   return tot;
 }
-
-// Write data to inode.
 // Caller must hold ip->lock.
 // If user_src==1, then src is a user virtual address;
 // otherwise, src is a kernel address.
@@ -554,23 +562,32 @@ dirlookup(struct inode *dp, char *name, uint *poff)
   uint off, inum;
   struct dirent de;
 
+  //printf("dirlookup: start\n"); // debug line
+  //printf("dirlookup: dp->type: %d\n", dp->type); // debug line
+  //printf("dirlookup: name: %s\n", name); // debug line
+
   if(dp->type != T_DIR)
     panic("dirlookup not DIR");
 
   for(off = 0; off < dp->size; off += sizeof(de)){
+    //printf("dirlookup: reading directory entry at offset %d\n", off); // debug line
     if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
       panic("dirlookup read");
+    //printf("dirlookup: read directory entry: name: %s, inum: %d\n", de.name, de.inum); // debug line
     if(de.inum == 0)
       continue;
     if(namecmp(name, de.name) == 0){
       // entry matches path element
+      //printf("dirlookup: entry matches name: %s\n", name); // debug line
       if(poff)
         *poff = off;
       inum = de.inum;
+      //printf("dirlookup: returning inode with inum: %d\n", inum); // debug line
       return iget(dp->dev, inum);
     }
   }
 
+  //printf("dirlookup: name not found\n"); // debug line
   return 0;
 }
 
@@ -652,42 +669,54 @@ static struct inode*
 namex(char *path, int nameiparent, char *name)
 {
   struct inode *ip, *next;
-
+  //printf("namex: before path checking\n"); // debug line
   if(*path == '/')
     ip = iget(ROOTDEV, ROOTINO);
   else
     ip = idup(myproc()->cwd);
 
   while((path = skipelem(path, name)) != 0){
+    //printf("namex: path after skipelem: %s\n", path); // debug line
+    //printf("namex: current name: %s\n", name); // debug line
     ilock(ip);
+    //printf("namex: ilock done\n"); // debug line
     if(ip->type != T_DIR){
+      //printf("namex: ip->type is not T_DIR\n"); // debug line
       iunlockput(ip);
       return 0;
     }
     if(nameiparent && *path == '\0'){
       // Stop one level early.
+      //printf("namex: stopping one level early\n"); // debug line
       iunlock(ip);
       return ip;
     }
-    if((next = dirlookup(ip, name, 0)) == 0){
+    //printf("befor dirlook up\n"); // debug line
+    if((next = dirlookup(ip, name, 0)) == 0){ // error in dirlookup for after sigreturn
+      //printf("namex: dirlookup failed for name: %s\n", name); // debug line
       iunlockput(ip);
       return 0;
     }
+    //printf("namex: dirlookup succeeded for name: %s\n", name); // debug line  -- regular path of execution for normal stuff
     iunlockput(ip);
     ip = next;
   }
   if(nameiparent){
+    //printf("namex: nameiparent is true, returning 0\n"); // debug line
     iput(ip);
     return 0;
   }
+  //printf("namex: returning ip\n"); // debug line
   return ip;
 }
 
 struct inode*
 namei(char *path)
 {
+  //printf("!!!!!___!__ I AM IN namei: path: %s\n", path);
   char name[DIRSIZ];
-  return namex(path, 0, name);
+  //printf("let is return after doing namex\n"); // debug line
+  return namex(path, 0, name); // error in namex after sigreturn
 }
 
 struct inode*

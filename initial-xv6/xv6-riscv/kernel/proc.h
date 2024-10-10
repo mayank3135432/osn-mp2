@@ -111,5 +111,10 @@ struct proc {
   void (*alarm_handler)();
   int ticks_count;          // Counter for ticks
   int alarm_on;             // Flag to check if alarm is on
-  struct trapframe *alarm_trapframe;
+  struct trapframe* alarm_trapframe;
+  int handling_alarm;
+  int tickets;           // Number of tickets for lottery scheduling
+  uint64 arrival_time;   // Arrival time of the process
+  int priority; // Priority level of the process
+  int ticks; // CPU ticks used by the process
 };

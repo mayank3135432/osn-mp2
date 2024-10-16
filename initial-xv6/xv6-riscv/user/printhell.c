@@ -9,7 +9,7 @@ void handler() {
 int main(int argc, char *argv[]) {
   sigalarm(3, handler);
   uint64 i = 0;
-  while(i<1000000000){
+  while(i<1000000000){ //1000000000
     //printf("\n_____!!!!+_____+!!!!_____i: %ld_____!!!!+_____+!!!!_____\n", i);
     i++;
     

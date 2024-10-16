@@ -115,6 +115,7 @@ struct proc {
   int handling_alarm;
   int tickets;           // Number of tickets for lottery scheduling
   uint64 arrival_time;   // Arrival time of the process
-  int priority; // Priority level of the process
-  int ticks; // CPU ticks used by the process
+  int priority;           // Current priority queue (0int priority;           // Current priority (0-3)
+  int time_slice;         // Remaining time slice
+  int total_ticks;        // Total ticks spent in the current queue
 };

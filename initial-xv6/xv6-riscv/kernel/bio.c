@@ -60,11 +60,11 @@ bget(uint dev, uint blockno)
 {
   struct buf *b;
 
-  // printf("bget: acquiring bcache.lock\n"); // debug line
+  //printf("bget: acquiring bcache.lock\n"); // debug line
   acquire(&bcache.lock); // problem is here for sigreturn/sigalarm
-
+  //printf("bget: bcache.lock acquired\n"); // debug line
   // Is the block already cached?
-  // printf("bget: checking if block is already cached\n"); // debug line
+  //printf("bget: checking if block is already cached\n"); // debug line
   for(b = bcache.head.next; b != &bcache.head; b = b->next){
     // printf("bget: inspecting buffer with dev=%u, blockno=%u\n", b->dev, b->blockno); // debug line
     if(b->dev == dev && b->blockno == blockno){

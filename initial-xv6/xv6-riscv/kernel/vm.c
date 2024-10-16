@@ -6,6 +6,8 @@
 #include "defs.h"
 #include "fs.h"
 
+
+
 /*
  * the kernel's page table.
  */
@@ -450,8 +452,34 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   }
 }
 
+#include "spinlock.h"
+#include "proc.h"
 
 
+// USELESS FUNTIONS BELOW
+/* 
+void switchkvm(void)
+{
+  push_off();
+  w_satp(MAKE_SATP((uint64)kernel_pagetable));
+  sfence_vma();
+  pop_off();
+  printf("switchkvm what the hell is goin on\n");
+}
+
+void
+switchuvm(struct proc *p)
+{
+  if(p == 0)
+    panic("switchuvm: no process");
+  if(p->pagetable == 0)
+    panic("switchuvm: no pagetable");
+
+  w_satp(MAKE_SATP((uint64)p->pagetable));
+  sfence_vma();
+  printf("switchuvm what the hell is goin on\n");
+
+} */
 
 
 

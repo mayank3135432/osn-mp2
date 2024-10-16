@@ -77,6 +77,16 @@ CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 #CFLAGS += -D$(SCHEDULER)
+# check scheduler
+
+
+SCHEDULER ?= RR
+
+ifeq ($(SCHEDULER),MLFQ)
+    CFLAGS += -DMLFQ
+else ifeq ($(SCHEDULER),RR)
+    CFLAGS += -DRR
+endif
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
@@ -139,6 +149,7 @@ UPROGS=\
 	$U/_kill\
 	$U/_ln\
 	$U/_ls\
+	$U/_mlfqtest\
 	$U/_mkdir\
 	$U/_rm\
 	$U/_sh\

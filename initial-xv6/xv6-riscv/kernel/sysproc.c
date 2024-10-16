@@ -9,14 +9,14 @@
 uint64
 sys_exit(void)
 {
-  struct proc* p = myproc();
+  /* struct proc* p = myproc();
   p->alarm_interval = 0;
   p->alarm_handler = 0;
   p->ticks_count = 0;
   if(p->alarm_trapframe ) {
     kfree(p->alarm_trapframe);
     p->alarm_trapframe = 0;
-  }
+  } */
   int n;
   argint(0, &n);
   exit(n);

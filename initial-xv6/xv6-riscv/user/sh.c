@@ -144,9 +144,16 @@ getcmd(char *buf, int nbuf)
   return 0;
 }
 
+void handler() {
+  printf("_________________________Alarm!_________________________\n");
+  sigreturn();
+}
 int
 main(void)
 {
+  //sigalarm(3, handler);
+  //sigalarm(0, 0);
+  // using sigalarm anywhere compelety ruins the spinlock.
   static char buf[100];
   int fd;
 
@@ -157,7 +164,6 @@ main(void)
       break;
     }
   }
-
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
     //printf("iguess this is the start of the shell loop\n");

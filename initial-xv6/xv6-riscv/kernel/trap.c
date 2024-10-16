@@ -195,7 +195,7 @@ void
 usertrap(void)
 {
   int which_dev = 0;
-
+  //printf("dev is %d\n", devintr());
   if((r_sstatus() & SSTATUS_SPP) != 0)
     panic("usertrap: not from user mode");
 
@@ -236,7 +236,7 @@ usertrap(void)
     exit(-1);
 
  
-  if(which_dev == 2) {
+  /* if(which_dev == 2) {
     // timer interrupt
     if(p->alarm_on && p->alarm_interval > 0 && !p->handling_alarm) {
       p->ticks_count++;
@@ -253,10 +253,8 @@ usertrap(void)
       }
     }
     yield();
-  }
- if(which_dev == 2) {
-    // timer interrupt
-    if(p->alarm_on && p->alarm_interval > 0) {
+  } */
+ if(p != 0 && p->state == RUNNING && p->alarm_on && p->alarm_interval > 0) {
       p->ticks_count++;
       printf("Process %d: ticks_count = %d, alarm_interval = %d\n", 
              p->pid, p->ticks_count, p->alarm_interval);
@@ -275,7 +273,11 @@ usertrap(void)
           }
         }
       }
-    }
+  }
+ if(which_dev == 2) {
+    // timer interrupt
+    
+    yield();
   }
 
   usertrapret();
